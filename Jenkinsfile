@@ -1,85 +1,92 @@
-def registry = 'https://ytfashion.jfrog.io/ '
-//def imageName = 'valaxy02.jfrog.io/valaxy-docker/ttrend'
-//def version   = '2.0.2'
-pipeline{
+pipeline {
     agent {
-        node {
-            label "valaxy"
-        }
-    }
-    environment {
-        PATH = "/opt/apache-maven-3.8.7/bin:$PATH"
-    }
-    stages {
-        stage('build') {
-            steps{
-                echo "------------ build started ---------"
-                sh 'mvn clean deploy -Dmaven.test.skip=true'
-                echo "------------ build completed ---------"
-        }
+       node {
+         label "jenkins-slave"
       }
-
-        stage('Unit Test') {
-            steps {
-                echo '<--------------- Unit Testing started  --------------->'
-                sh 'mvn surefire-report:report'
-                echo '<------------- Unit Testing stopped  --------------->'
-            }
-        }
-
-       stage ("Sonar Analysis") {
-            environment {
-               scannerHome = tool 'valaxy-sonarscanner'
-            }
-            steps {
-                echo '<--------------- Sonar Analysis started  --------------->'
-                withSonarQubeEnv('valaxy-sonarqube-server') {    
-                    sh "${scannerHome}/bin/sonar-scanner"
-                echo '<--------------- Sonar Analysis stopped  --------------->'
-                }    
-               
-            }   
-        }
-        stage("Quality Gate") {
-            steps {
-                script {
-                  echo '<--------------- Sonar Gate Analysis Started --------------->'
-                    timeout(time: 1, unit: 'HOURS'){
-                       def qg = waitForQualityGate()
-                        if(qg.status !='OK') {
-                            error "Pipeline failed due to quality gate failures: ${qg.status}"
-                        }
-                    }  
-                  echo '<--------------- Sonar Gate Analysis Ends  --------------->'
-                }
-            }
-        }
-
-         stage("Jar Publish") {
-        steps {
-            script {
-                    echo '<--------------- Jar Publish Started --------------->'
-                     def server = Artifactory.newServer url:registry+"/artifactory" ,  credentialsId:"jfrog-access"
-                     def properties = "buildid=${env.BUILD_ID},commitid=${GIT_COMMIT}";
-                     def uploadSpec = """{
-                          "files": [
-                            {
-                              "pattern": "jarstaging/(*)",
-                              "target": "libs-release-local//{1}",
-                              "flat": "false",
-                              "props" : "${properties}",
-                              "exclusions": [ "*.sha1", "*.md5"]
-                            }
-                         ]
-                     }"""
-                     def buildInfo = server.upload(uploadSpec)
-                     buildInfo.env.collect()
-                     server.publishBuildInfo(buildInfo)
-                     echo '<--------------- Jar Publish Ended --------------->'  
-            
-            }
-        }   
     }
+    environment{
+		PATH="/usr/share/maven/bin:$PATH"
+	}
+    stages {
+        stage('Build') {
+            steps {
+                echo '<--------------- Building --------------->'
+                sh 'printenv'
+                sh 'mvn clean deploy -Dmaven.test.skip=true'
+                echo '<------------- Build completed --------------->'
+            }
+        }
+
+		stage('Unit Test'){
+			steps {
+				echo '<------ Unit Testing Started ----------->'
+				sh 'mvn surefire-report:report'
+				echo '<----- Unit Testing Stopped ------->'
+			}
+		}
+
+		stage ("Sonar Analysis") {
+				environment {
+				scannerHome = tool 'my-sonarscanner'
+				}
+				steps {
+					echo '<--------------- Sonar Analysis started  --------------->'
+					withSonarQubeEnv('sonarqube-cloud') {
+						sh "${scannerHome}/bin/sonar-scanner"
+					}    
+					echo '<--------------- Sonar Analysis stopped  --------------->'
+				}   
+			}    
+	
+
+		stage("Quality Gate"){
+			steps {
+				script {
+					echo '<------- Sonar Gate Analysis Started -----------'
+					timeout(time: 1, unit: 'HOURS'){
+						def qg = waitForQualityGate()
+							if(qg.status != 'OK') { 
+								error "Pipeline failed due to quality gate failure: ${qg.status}"
+						}
+					}
+					echo '<------ Sonar Gate Analysis Ends -------->'
+				}
+			}
+		}
+		def registry = 'https://ytfashion.jfrog.io'
+		stage("Jar Publish"){
+			steps{
+				scripts {
+					echo '<-------------------- Jar Publish Started ------------------>'
+					def server = Artifactory.newServer url:registry+"/artifactory" , credentialsId:"jfrog-access"
+					def properties = "builid=${env.BUILD_ID},commitid=${GIT_COMMIT}";
+					def uploadSpec = """{
+					
+						"files": [
+						{
+						"pattern": "jarstaging/(*),
+						"target": "libs-release-local//{1}",
+						"flat": "false",
+						"props": "${properties}",
+						"exclusions": [ "*.sha1", "*.md5"]
+						}
+						]
+
+					}"""
+					def buildInfo = server.upload(uploadSpec)
+					buildInfo.env.collect()
+					server.publishBuildInfo(buildInfo)
+					echo '<----------------------- Jar Publish Ended ---------------------->'
+				}
+			}
+		}
+		
+	}
 }
 
-}
+
+
+
+
+
+
