@@ -1,3 +1,4 @@
+def registry = 'https://ytfashion.jfrog.io'
 pipeline {
     agent {
        node {
@@ -53,7 +54,7 @@ pipeline {
 				}
 			}
 		}
-		def registry = 'https://ytfashion.jfrog.io'
+		
 		stage("Jar Publish"){
 			steps{
 				scripts {
