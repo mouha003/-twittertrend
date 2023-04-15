@@ -1,4 +1,4 @@
-def registry = 'https://valaxy02.jfrog.io'
+def registry = 'https://ytfashion.jfrog.io/'
 pipeline{
     agent {
         node {
@@ -27,7 +27,7 @@ pipeline{
 
        stage ("Sonar Analysis") {
             environment {
-               scannerHome = tool 'valaxy-sonarscanner'
+               scannerHome = tool 'my-sonarscanner'
             }
             steps {
                 echo '<--------------- Sonar Analysis started  --------------->'
